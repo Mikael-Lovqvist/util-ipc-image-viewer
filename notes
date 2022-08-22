@@ -1,0 +1,93 @@
+URL schemes for selecting transport
+
+	tcp://host:port
+
+	unix:///path
+
+	fifo:///path
+
+
+Transports
+
+	socket(AF_INET, TCP)
+
+		url query options: listen
+			bind to socket and listen
+			accept connection
+
+		url query options: not listen
+			connect to socket
+
+	socket(AF_UNIX)
+
+		url query options: listen, [delete_existing]
+			bind to socket and listen
+				if this fails due to existing pipe and delete_existing is True, we will delete the existing one and try again
+			accept connection
+
+		url query options: not listen
+			connect to socket
+
+	posix FIFO
+		url query options: [create]
+		#TODO - document option "strict"
+
+			if create:
+				create fifo
+			open fifo for reading
+
+
+
+Protocol
+
+	We will use a simple binary protocol.
+
+	For each connection the following data is being sent
+
+		Version (this format is always the same, in future versions too)
+			unit8_t		major
+			unit8_t		minor
+			unit16_t	revision
+
+	Then during the connection, for each image the following data is being sent (version 0.1.0)
+
+		Size and format
+			uint32_t	frame_size
+
+			uint16_t	frame_format
+				1	RAW
+				2	JPEG
+				3	PNG
+
+			uint16_t	width
+				0		FROM_FRAME
+				> 0		width
+
+			uint16_t	height
+				0		FROM_FRAME
+				> 0		height
+
+			uint16_t	pixel_format
+				0		FROM_FRAME
+				1		R8_G8_B8
+
+			uint16_t	pixel_stride
+				0		FROM_FRAME
+
+			uint32_t	row_stride
+				0		FROM_FRAME
+
+			Timestamp (can be set to 0 if not used)
+				uint32_t	ts_epoch
+				uint32_t	ts_epoch_ns
+
+
+		Note that FROM_FRAME only works for non raw formats.
+		Since this is a one way protocol, no errors are sent back, instead they are displayed in the monitor
+
+
+Current progress
+
+	We have tested roundtrip of raw images using the protocols.
+	Only thing left is to connect things together and implement the various socket types.
+

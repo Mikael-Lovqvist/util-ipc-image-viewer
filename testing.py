@@ -7,8 +7,11 @@ def hls(h, l, s):
 	irgb = tuple(min(255, max(0, int(component * 255))) for component in rgb)
 	return irgb
 
-def generate_random_images():
-	while True:
+def generate_random_images(count=None):
+	while count is None or count > 0:
+
+		if count is not None:
+			count -= 1
 
 		width = random.randint(1, 1024)
 		height = random.randint(1, 1024)
@@ -39,5 +42,5 @@ def generate_random_images():
 def show_images(window, frequency):
 
 	for image in generate_random_images():
-		window.new_image(image)
+		window.new_pil_image(image)
 		time.sleep(1.0 / frequency)
