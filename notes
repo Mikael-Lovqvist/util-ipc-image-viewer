@@ -1,8 +1,10 @@
+TODO: add editorconfig
+
 URL schemes for selecting transport
 
 	tcp://host:port
 
-	unix:///path
+	sock:///path
 
 	fifo:///path
 

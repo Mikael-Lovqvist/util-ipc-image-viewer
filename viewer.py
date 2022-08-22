@@ -1,67 +1,112 @@
-from protocols import binary_protocol_0_1_producer, binary_protocol_0_1_consumer
-from testing import generate_random_images
-from urllib.parse import urlparse
-from viewer_widget import QApplication, viewer_window, QImage
-import queue, threading, socket
+#from testing import generate_random_images	  # todo  - add support for using the tool for generating test images as well
+#from producers import raw_pillow_producer
+
+from urllib.parse import urlparse, parse_qsl
+from viewer_widget import QApplication, viewer_window
+import threading, time, signal, os
 import transport_managers
-import time
+
+from consumers import raw_image_consumer
+
+import argparse
+
+def iter_options(cls):
+	for key in cls.__dict__:
+		if not key.startswith('_'):
+			yield getattr(cls, key)
 
 
-class raw_pillow_producer(binary_protocol_0_1_producer):
-	def __init__(self):
-		self.pending = queue.Queue(1)
-		self.dispatch_frame = self.pending.put
-		self.produce_frame = self.pending.get
+#TODO - add options for non URL for hostname and port and such
 
-	def transport(self, image):
+parser = argparse.ArgumentParser(description='Image data monitor', formatter_class=argparse.RawTextHelpFormatter)
 
-		frame_info = self.frame_info()
-		if image.mode == 'RGB':
-			frame_info.pixel_format = 1 	#TODO - define enums
-			frame_info.pixel_stride = 3
+transport_manager_table = (
+	('tcp',		'tcp',		transport_managers.tcp),
+	('sock',	'socket',	transport_managers.unix),
+	('fifo',	'fifo',		transport_managers.fifo),
+)
+
+scheme_map = dict()
+method_map = dict()
+
+
+url_help_schemes = tuple()
+method_help = tuple()
+seen_options = set()
+
+for scheme, method, tm in transport_manager_table:
+	scheme_map[scheme] = tm
+	method_map[method] = tm
+
+	url_help_schemes += (
+		'',
+		f'{scheme}://host:[address][?options]',
+		'',
+		'  Valid options:',
+		*(f'    {option.url_query_tag:<18} {option.description}' for option in iter_options(tm.options)),
+	)
+
+	method_help += (
+		'',
+		method,
+		'',
+		'  Valid options:',
+		*(f'    {option.command_line_option:<25} {option.description}' for option in iter_options(tm.options)),
+	)
+
+	for option in iter_options(tm.options):
+		if option.type is bool:
+
+			if option.command_line_option not in seen_options:
+				#We will assume that any colissions are on purpose
+				parser.add_argument(option.command_line_option, action='store_true', help='Depends on METHOD, see --method', dest=option.command_line_option)
+				seen_options.add(option.command_line_option)
 		else:
-			raise NotImplementedError(image.mode)
-
-		#Basic properties
-		frame_info.width, frame_info.height = image.size
-		frame_info.frame_format = 1	 #TODO - define enums
-
-		#Calculate strides
-		frame_info.row_stride = frame_info.pixel_stride * frame_info.width
-
-		#We don't bother with TS for now
-		frame_info.ts_epoch = 0
-		frame_info.ts_epoch_ns = 0
-
-		frame = image.tobytes()
-		frame_info.frame_size = len(frame)
-
-		self.dispatch_frame((frame_info, frame))
+			raise NotImplementedError('only supports bool for now')
 
 
 
-class raw_image_consumer(binary_protocol_0_1_consumer):
-	def __init__(self, viewer_widget):
-		self.viewer_widget = viewer_widget
 
-	def dispatch_frame(self, frame_info, frame):
-		if frame_info.pixel_format == 1: 	#TODO - use enum
+parser.add_argument('URL', nargs='?',
+	help = '\n'.join((
+		'Specify connection using a URL',
+		'The following schemes are supported:',
+		*url_help_schemes,
+	))
+)
 
-			assert frame_info.pixel_stride == 3	#Currently we just pass everything along to qt
-				# from here so we only support the particular stride.
-				# We may add more support for other ones in the future but it would of course be
-				# better to not send any per pixel padding and solve it on the sending end.
-				# this would be useful in this end in case we are connecting with an application
-				# that we don't want to modify for some obscure reason we have not thought of yet
+parser.add_argument('--method',
+	help = '\n'.join((
+		'Specify transport when not using URL.',
+		'The following transports are supported:',
+		*method_help
+	))
+)
 
-			#new_raw_image(self, width, height, bytes_per_line, data, format)
-			self.viewer_widget.new_raw_image(frame_info.width, frame_info.height, frame_info.row_stride, frame, QImage.Format_RGB888)
 
-			#TODO - we may later want to format any timestamp and put in the viewer so we should send that too but for now we ignore it
+invocation = parser.parse_args()
 
-		else:
-			raise NotImplementedError()
+if invocation.URL:
+	url = urlparse(invocation.URL)
 
+	transport = scheme_map[url.scheme]
+	t_host, t_port = url.netloc.split(':')
+	target = (t_host, int(t_port))
+
+	transport_arguments = dict()
+	option_by_query = dict()
+	for option in iter_options(transport.options):
+		#transport_arguments[option.name] = getattr(invocation, option.command_line_option)
+		transport_arguments[option.name] = option.default
+		option_by_query[option.url_query_tag] = option
+
+	for key, value in parse_qsl(url.query, keep_blank_values=True):
+		option = option_by_query[key]
+		transport_arguments[option.name] = True
+
+
+else:
+	raise NotImplementedError()
 
 
 
@@ -75,35 +120,18 @@ mw.setStyleSheet('''
 ''')
 
 
-test_image_source = raw_pillow_producer()
-test_image_viewer = raw_image_consumer(mw)
 
 
-ingress, egress = socket.socketpair()
+image_viewer = raw_image_consumer(mw)
+
+signal.signal(signal.SIGINT, signal.SIG_DFL)
 
 
-def ingress_thread():
-	test_image_source.produce_into_stream(ingress.makefile('wb'))
+def run_transport():
+	transport.connect(target, image_viewer, **transport_arguments)
 
-
-def egress_thread():
-	test_image_viewer.consume_from_stream(egress.makefile('rb'))
-
-
-def gen_images_thread():
-
-	for image in generate_random_images():
-		test_image_source.transport(image)
-		time.sleep(0.2)
-
-
+threading.Thread(target=run_transport).start()
 
 mw.show()
-
-threading.Thread(target=ingress_thread).start()
-threading.Thread(target=egress_thread).start()
-threading.Thread(target=gen_images_thread).start()
-
-
 exit(app.exec_())
 

@@ -39,12 +39,12 @@ class tcp:
 
 				listening_socket.bind(address)
 				listening_socket.listen()
-
-				transport_socket = listening_socket.accept()[0]
-				handle_transport_socket(transport_socket)
+				while True:
+					transport_socket = listening_socket.accept()[0]
+					handle_transport_socket(transport_socket)
 		else:
 			with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as transport_socket:
-				transport_socket.connect(path)
+				transport_socket.connect(address)
 				handle_transport_socket(transport_socket)
 
 
@@ -88,11 +88,11 @@ class unix:
 					else:
 						raise
 
-
 				listening_socket.listen()
-				transport_socket = listening_socket.accept()[0]
+				while True:
+					transport_socket = listening_socket.accept()[0]
+					handle_transport_socket(transport_socket)
 
-				handle_transport_socket(transport_socket)
 		else:
 			with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as transport_socket:
 				transport_socket.connect(path)

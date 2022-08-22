@@ -1,4 +1,5 @@
 from protocols import  binary_protocol_0_1_consumer
+from viewer_widget import QImage
 
 class raw_image_consumer(binary_protocol_0_1_consumer):
 	def __init__(self, viewer_widget):

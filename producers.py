@@ -4,10 +4,17 @@ import queue
 
 #This is more of a transporter than producer - we should potentially do some refactoring to name things better
 class raw_pillow_producer(binary_protocol_0_1_producer):
-	def __init__(self):
-		self.pending = queue.Queue(1)
+	def __init__(self, one_shot=False):
+		self.one_shot = one_shot
+		if one_shot:
+			self.pending = queue.Queue(2)	#This is so that we may queue up the sentinel right away
+		else:
+			self.pending = queue.Queue(1)
+
 		self.dispatch_frame = self.pending.put
 		self.produce_frame = self.pending.get
+
+
 
 	def transport(self, image):
 
@@ -33,4 +40,7 @@ class raw_pillow_producer(binary_protocol_0_1_producer):
 		frame_info.frame_size = len(frame)
 
 		self.dispatch_frame((frame_info, frame))
+
+		if self.one_shot:
+			self.dispatch_sentinel()
 
