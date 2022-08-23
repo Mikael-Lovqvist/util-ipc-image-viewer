@@ -2,6 +2,14 @@ from testing import generate_random_images
 from producers import raw_pillow_producer
 import transport_managers
 import threading
+import sys
+
+try:
+	host = sys.argv[1]
+	port = int(sys.argv[2])
+except:
+	host = 'localhost'
+	port = 8001
 
 
 def variant1():
@@ -10,7 +18,7 @@ def variant1():
 
 
 	def run_sender():
-		transport_managers.tcp.connect(('localhost', 8001), transport)
+		transport_managers.tcp.connect((host, port), transport)
 
 	threading.Thread(target=run_sender).start()
 	[image] = generate_random_images(1)
