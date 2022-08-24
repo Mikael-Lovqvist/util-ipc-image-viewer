@@ -6,6 +6,9 @@ from PySide2.QtCore import Qt
 class viewer_window(QMainWindow):
 	def __init__(self, title=None):
 		self.image = None
+		self.zoom = 1.0
+		self.zoom_exp = 0
+		self.antialiasing = False
 
 		super().__init__(flags=Qt.Dialog)
 
@@ -14,6 +17,21 @@ class viewer_window(QMainWindow):
 
 		self.setAutoFillBackground(True)
 		self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+
+	def keyPressEvent(self, event):
+		if event.key() == Qt.Key_Plus:
+			self.zoom_exp += .25
+			self.zoom = 2.0 ** self.zoom_exp
+			print(self.zoom)
+			self.update()
+		elif event.key() == Qt.Key_Minus:
+			self.zoom_exp -= .25
+			self.zoom = 2.0 ** self.zoom_exp
+			print(self.zoom)
+			self.update()
+		elif event.key() == Qt.Key_A:
+			self.antialiasing = not self.antialiasing
+			self.update()
 
 	def new_pil_image(self, image):
 
@@ -36,8 +54,14 @@ class viewer_window(QMainWindow):
 			iw, ih = self.image.width(), self.image.height()
 			ww, wh = geometry.width(), geometry.height()
 
-			x, y = (ww - iw) * .5, (wh - ih) * .5
-			painter.drawImage(x, y, self.image)
+			#rzoom = 1.0 / self.zoom
+
+			x, y = (ww - iw * self.zoom) * .5, (wh - ih * self.zoom) * .5
+			painter.translate(x, y)
+			painter.scale(self.zoom, self.zoom)
+			painter.setRenderHint(painter.SmoothPixmapTransform, self.antialiasing)
+
+			painter.drawImage(0, 0, self.image)
 
 
 
