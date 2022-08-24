@@ -8,6 +8,7 @@ class symbol(type):
 		return self.__name__
 
 DEFAULT = symbol('DEFAULT')
+PENDING = symbol('PENDING')
 NOT_AVAILABLE = symbol('N/A')
 
 class protocol_consumer:

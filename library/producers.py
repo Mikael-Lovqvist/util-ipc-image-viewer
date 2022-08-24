@@ -1,4 +1,4 @@
-from protocols import binary_protocol_0_1_producer
+from .protocols import binary_protocol_0_1_producer
 import queue
 
 

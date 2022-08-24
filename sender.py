@@ -4,6 +4,8 @@ from urllib.parse import urlparse, parse_qsl
 import threading, time, signal, os
 import transport_managers
 
+#NOTE - this has a lot in common with viewer - this should be generalized
+
 
 import argparse
 
@@ -86,9 +88,15 @@ invocation = parser.parse_args()
 if invocation.URL:
 	url = urlparse(invocation.URL)
 
+
 	transport = scheme_map[url.scheme]
-	t_host, t_port = url.netloc.split(':')
-	target = (t_host, int(t_port))
+
+	#NOTE - maybe we should have the transport parsing the url for us?
+	if transport is transport_managers.tcp:
+		t_host, t_port = url.netloc.split(':')
+		target = (t_host, int(t_port))
+	else:
+		target = url.netloc
 
 	transport_arguments = dict()
 	option_by_query = dict()

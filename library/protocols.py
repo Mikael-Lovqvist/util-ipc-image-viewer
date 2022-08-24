@@ -1,4 +1,4 @@
-from application_types import semantic_version, structure, protocol_consumer, protocol_producer
+from .application_types import semantic_version, structure, protocol_consumer, protocol_producer
 
 class binary_protocol_0_1_base:
 	class frame_info(structure):

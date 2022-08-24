@@ -2,11 +2,10 @@
 #from producers import raw_pillow_producer
 
 from urllib.parse import urlparse, parse_qsl
-from viewer_widget import QApplication, viewer_window
+from library.viewer_widget import QApplication, viewer_window
 import threading, time, signal, os
-import transport_managers
-
-from consumers import raw_image_consumer
+from library import transport_managers
+from library.consumers import raw_image_consumer
 
 import argparse
 
@@ -90,8 +89,15 @@ if invocation.URL:
 	url = urlparse(invocation.URL)
 
 	transport = scheme_map[url.scheme]
-	t_host, t_port = url.netloc.split(':')
-	target = (t_host, int(t_port))
+
+	#NOTE - maybe we should have the transport parsing the url for us?
+	if transport is transport_managers.tcp:
+		t_host, t_port = url.netloc.split(':')
+		target = (t_host, int(t_port))
+	else:
+		target = url.netloc
+
+
 
 	transport_arguments = dict()
 	option_by_query = dict()

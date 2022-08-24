@@ -1,16 +1,21 @@
-from application_types import command_option, DEFAULT, protocol_consumer, protocol_producer
-import os, socket, errno	#TODO - figure out how to deal with EADDR on non posix platforms
+from .application_types import command_option, DEFAULT, PENDING, protocol_consumer, protocol_producer
+import os, socket, errno, threading	#TODO - figure out how to deal with EADDR on non posix platforms
 from pathlib import Path
 
 #TODO - maybe make path to be an option as well? Or not?
 
+class abstract_transport:
+	pass
 
-#socket.makefile('rb')
-
-class tcp:
+class tcp(abstract_transport):
 	class options:
 		listen = command_option(bool, False, 'Listen', url_query_tag='listen', command_line_option='--listen')
 		reuse_address = command_option(bool, False, 'Reuse address', url_query_tag='reuse_address', command_line_option='--reuse-address')
+
+
+	@classmethod
+	def pending_connection(cls, address=PENDING, protocol_handler=PENDING, listen=DEFAULT, reuse_address=DEFAULT):
+		return pending_connection(cls, address, protocol_handler, listen, reuse_address)
 
 	@classmethod
 	def connect(cls, address, protocol_handler, listen=DEFAULT, reuse_address=DEFAULT):
@@ -48,10 +53,15 @@ class tcp:
 				handle_transport_socket(transport_socket)
 
 
-class unix:
+class unix(abstract_transport):
 	class options:
 		listen = command_option(bool, False, 'Listen', url_query_tag='listen', command_line_option='--listen')
 		delete_existing = command_option(bool, False, 'Delete existing socket', url_query_tag='delete_existing', command_line_option='--delete-existing')
+
+
+	@classmethod
+	def pending_connection(cls, path=PENDING, protocol_handler=PENDING, listen=DEFAULT, delete_existing=DEFAULT):
+		return pending_connection(cls, path, protocol_handler, listen, delete_existing)
 
 	@classmethod
 	def connect(cls, path, protocol_handler, listen=DEFAULT, delete_existing=DEFAULT):
@@ -60,7 +70,6 @@ class unix:
 		option_delete_existing = cls.options.delete_existing.parse(delete_existing)
 
 		p = Path(path)
-
 
 		def handle_transport_socket(transport_socket):
 
@@ -98,10 +107,17 @@ class unix:
 				transport_socket.connect(path)
 				handle_transport_socket(transport_socket)
 
-class fifo:
+
+
+class fifo(abstract_transport):
 	class options:
 		create = command_option(bool, False, 'Create fifo', url_query_tag='create', command_line_option='--create-fifo')
 		strict = command_option(bool, False, 'Creating fifo must not fail', url_query_tag='strict', command_line_option='--create-fifo-strict')
+
+
+	@classmethod
+	def pending_connection(cls, path=PENDING, protocol_handler=PENDING, create=DEFAULT, strict=DEFAULT):
+		return pending_connection(cls, path, protocol_handler, create, strict)
 
 	@classmethod
 	def connect(cls, path, protocol_handler, create=DEFAULT, strict=DEFAULT):
@@ -130,3 +146,31 @@ class fifo:
 				protocol_handler.consume_from_stream(fifo)
 		else:
 			raise TypeError(protocol_handler)
+
+
+class pending_connection:
+	def __init__(self, transport, *positional, **named):
+		self.transport = transport
+		self.positional = positional
+		self.named = named
+
+	def connect(self, *positional, **named):
+		ip = iter(positional)
+
+		def get_pos(p):
+			return next(ip) if p is PENDING else p
+
+		#Get positionals, replace PENDING with positionals from positional
+		pos = tuple(get_pos(p) for p in self.positional)
+		kw = {n: get_pos(v) for n, v in self.named.items()}
+
+		#If there are more positionals here add them
+		pos += tuple(ip)
+		kw.update(named)
+
+		self.transport.connect(*pos, **kw)
+
+	def connect_as_thread(self, *positional, **named):
+		thread = threading.Thread(target=self.connect, args=positional, kwargs=named)
+		thread.start()
+		return thread
