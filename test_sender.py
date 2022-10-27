@@ -1,6 +1,6 @@
-from testing import generate_random_images
-from producers import raw_pillow_producer
-import transport_managers
+from library.testing import generate_random_images
+from library.producers import raw_pillow_producer
+from library import transport_managers
 import threading
 import sys
 
@@ -26,11 +26,14 @@ def variant1():
 	transport.dispatch_sentinel()
 
 
+
+
+
 def variant2():	#This variant doesn't need to create an additional thread  and allows us to write a simple function to just send an image off
 	transport = raw_pillow_producer(one_shot = True)
 	[image] = generate_random_images(1)
 	transport.transport(image)
-	transport_managers.tcp.connect(('localhost', 8001), transport)
-
+	#transport_managers.tcp.connect(('localhost', 8001), transport)
+	transport_managers.tcp.connect((host, port), transport)
 
 variant2()

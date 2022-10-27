@@ -95,3 +95,7 @@ Current progress
 	We have tested roundtrip of raw images using the protocols.
 	Only thing left is to connect things together and implement the various socket types.
 
+
+
+[devilholk@efforter image-ipc-viewer]$ PYTHONPATH=library/ python viewer.py "sock://viewaux.sock?listen&delete_existing"
+
