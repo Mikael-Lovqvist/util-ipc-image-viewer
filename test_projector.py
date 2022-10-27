@@ -20,7 +20,6 @@ except:
 
 def create_test_image(width=1920, height=1080, inverted=False):
 
-
 	if inverted:
 		background = (255, 255, 255)
 		features = (0, 0, 0)
@@ -42,7 +41,6 @@ def create_test_image(width=1920, height=1080, inverted=False):
 	for i in range(height // spacing):
 		draw.line((0, i * spacing, width, i * spacing), fill=features)
 
-
 	circles = 20
 
 	for i in range(circles):
@@ -55,13 +53,14 @@ def create_test_image(width=1920, height=1080, inverted=False):
 
 
 
-
 def variant2():	#This variant doesn't need to create an additional thread  and allows us to write a simple function to just send an image off
 	transport = raw_pillow_producer(one_shot = True)
 	transport.transport(create_test_image())
 	transport_managers.tcp.connect((host, port), transport)
 
-variant2()
 
-# DISPLAY=:0 python viewer.py "tcp://0.0.0.0:6969?listen&reuse_address"
+if __name__ == '__main__':
+	variant2()
+
+	# DISPLAY=:0 python viewer.py "tcp://0.0.0.0:6969?listen&reuse_address"
 
